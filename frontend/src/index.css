@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  /*Background color: */
+  --color-app-bg: #6D7282;
+
+  /* Surface color: */
+  --color-app-surface: #F1F1F1;
+
+  /* active chips etc color: */
+  --color-app-primary: #374151;
+
+  /* active chips's text color: */
+  --color-app-primaryText: #ffffff;
+
+
+  --color-app-text: #111827;
+  --color-app-muted: #6b7280;
+
+  /* Header color:*/
+  --color-app-header: rgba(241, 241, 241, 0.92);
+
+  --color-app-border: rgba(0, 0, 0, 0.10);
+  --color-app-soft: rgba(0, 0, 0, 0.05);
+}
+
+/* your existing styles can stay below */
+:root {
+  direction: rtl;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@font-face {
+  font-family: "IRANSans";
+  src: url("./assets/fonts/iransans/IRANSans.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IRANSans";
+  src: url("./assets/fonts/iransans/IRANSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IRANSans";
+  src: url("./assets/fonts/iransans/IRAN-Sans-Ultra-Light.woff2") format("woff2");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+html,
+body {
+  font-family: "IRANSans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* optional italics if available */
