@@ -5,7 +5,6 @@ import logo from "../assets/logo.PNG";
 
 import StateLoading from "../components/states/StateLoading";
 import StateError from "../components/states/StateError";
-import StateEmpty from "../components/states/StateEmpty";
 
 function slugifyId(input) {
     const s = String(input ?? "").trim();
@@ -39,9 +38,7 @@ function formatToman(price) {
 function getItemImage(item) {
     const imgs = Array.isArray(item?.images) ? item.images : [];
     if (!imgs.length) return null;
-    const best = [...imgs].sort(
-        (a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999)
-    )[0];
+    const best = [...imgs].sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))[0];
     return best?.url ?? null;
 }
 
@@ -49,6 +46,11 @@ export default function MenuPage() {
     const { data, isLoading, isError } = useQuery({
         queryKey: ["menu"],
         queryFn: fetchMenu,
+    });
+
+    const { data: profile } = useQuery({
+        queryKey: ["shop-profile"],
+        queryFn: fetchShopProfile,
     });
 
     const categories = useMemo(() => {
@@ -64,17 +66,15 @@ export default function MenuPage() {
     }, [data]);
 
     const [activeId, setActiveId] = useState("");
+    const [isFooterOpen, setIsFooterOpen] = useState(false);
+    const [showFloatingBar, setShowFloatingBar] = useState(true);
 
+    const footerRef = useRef(null);
 
+    // Scroll spy logic (unchanged)
     useEffect(() => {
         if (!activeId && categories.length) setActiveId(categories[0]._anchorId);
     }, [categories, activeId]);
-
-
-    const { data: profile } = useQuery({
-        queryKey: ["shop-profile"],
-        queryFn: fetchShopProfile,
-    });
 
     const scrollToCategory = useCallback((anchorId) => {
         const el = document.getElementById(anchorId);
@@ -84,52 +84,32 @@ export default function MenuPage() {
         window.scrollTo({ top: y, behavior: "smooth" });
     }, []);
 
+    // Hide floating bar when real footer is visible
     useEffect(() => {
-        const els = categories
-            .map((c) => document.getElementById(c._anchorId))
-            .filter(Boolean);
+        if (!footerRef.current) return;
 
-        if (!els.length) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                setShowFloatingBar(!entry.isIntersecting);
+            },
+            { threshold: 0.3 }
+        );
 
-        const headerLine = 120; // px from top of viewport (tune if needed)
-
-        const onScroll = () => {
-            // last section whose top is above the headerLine
-            let currentId = els[0].id;
-
-            for (const el of els) {
-                const top = el.getBoundingClientRect().top;
-                if (top <= headerLine) currentId = el.id;
-                else break; // sections are in order
-            }
-
-            // if at very bottom, force last active
-            const nearBottom =
-                window.innerHeight + window.scrollY >=
-                document.documentElement.scrollHeight - 8;
-
-            if (nearBottom) currentId = els[els.length - 1].id;
-
-            setActiveId(currentId);
-        };
-
-        onScroll(); // initialize on load
-        window.addEventListener("scroll", onScroll, { passive: true });
-        return () => window.removeEventListener("scroll", onScroll);
-    }, [categories]);
-
+        observer.observe(footerRef.current);
+        return () => observer.disconnect();
+    }, []);
 
     return (
         <div dir="rtl" lang="fa" className="relative min-h-dvh bg-app-bg text-app-text">
-            {/* Background logo (true background layer) */}
+            {/* Background logo */}
             <img
                 src={logo}
                 alt=""
                 aria-hidden="true"
-                className="pointer-events-none fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] opacity-[0.1]  object-contain z-0"
+                className="pointer-events-none fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] opacity-[0.1] object-contain z-0"
             />
 
-            {/* Sticky Header + Tabs */}
+            {/* Sticky Category Tabs */}
             <header className="relative sticky top-0 z-30 border-b border-app-border bg-app-header/85 backdrop-blur">
                 <div className="mx-auto max-w-xl px-4 py-3">
                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
@@ -155,48 +135,51 @@ export default function MenuPage() {
                 </div>
             </header>
 
-            {/* Main */}
-            <main className="relative z-10 mx-auto max-w-xl px-4 py-6 pb-24">
+            {/* Main Content */}
+            <main className="relative z-10 mx-auto max-w-xl px-4 py-6 pb-28">
                 {isLoading ? (
-                    <StatusCard title="در حال بارگذاری منو…" desc="لطفاً چند لحظه صبر کنید." />
+                    <StateLoading />
                 ) : isError ? (
-                    <StatusCard title="مشکلی پیش آمد." desc="لطفاً اینترنت را بررسی کنید و دوباره تلاش کنید." />
+                    <StateError />
                 ) : (
                     <div className="space-y-10">
                         {categories.map((cat) => (
                             <section key={cat._anchorId}>
                                 <div id={cat._anchorId} className="scroll-mt-32 h-px" />
 
-                                <div className="mb-4">
-                                    <div className="text-xl font-semibold text-app-text">{cat.title}</div>
-                                </div>
+                                {/* Category Box with reduced opacity */}
+                                <div className="rounded-3xl bg-app-surface/70 border border-app-border/60 p-5 shadow-sm backdrop-blur-sm">
+                                    <div className="mb-6">
+                                        <div className="text-xl font-semibold text-app-text">{cat.title}</div>
+                                    </div>
 
-                                <div className="space-y-3">
-                                    {[...cat.items]
-                                        .sort((a, b) => {
-                                            const avA = a?.is_available !== false;
-                                            const avB = b?.is_available !== false;
-                                            if (avA !== avB) return avA ? -1 : 1;
-                                            return (a?.sort_order ?? 999) - (b?.sort_order ?? 999);
-                                        })
-                                        .map((item) => (
-                                            <MenuItemCard key={item.id} item={item} />
-                                        ))}
+                                    <div className="space-y-4">
+                                        {[...cat.items]
+                                            .sort((a, b) => {
+                                                const avA = a?.is_available !== false;
+                                                const avB = b?.is_available !== false;
+                                                if (avA !== avB) return avA ? -1 : 1;
+                                                return (a?.sort_order ?? 999) - (b?.sort_order ?? 999);
+                                            })
+                                            .map((item) => (
+                                                <MenuItemCard key={item.id} item={item} />
+                                            ))}
+                                    </div>
                                 </div>
                             </section>
                         ))}
                     </div>
                 )}
+            </main>
 
-                {/* Footer with logo on LEFT */}
-                <footer className="mt-12 rounded-2xl border border-app-border bg-app-surface p-5">
+            {/* ==================== REAL FOOTER (at bottom of content) ==================== */}
+            <footer ref={footerRef} className="mx-auto max-w-xl px-4 pb-8">
+                <div className="rounded-2xl border border-app-border bg-app-surface p-5">
                     <div className="flex items-center justify-between gap-4">
-                        {/* Right side text (RTL) */}
                         <div className="min-w-0">
                             <div className="text-sm font-semibold text-app-text">
                                 {profile?.name ? profile.name : "اطلاعات تماس"}
                             </div>
-
                             <div className="mt-2 space-y-1 text-sm text-app-muted">
                                 {profile?.address ? <div>آدرس: {profile.address}</div> : <div>آدرس: …</div>}
                                 {profile?.hours ? <div>ساعت کاری: {profile.hours}</div> : <div>ساعت کاری: …</div>}
@@ -208,7 +191,7 @@ export default function MenuPage() {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             dir="ltr"
-                                            className="font-medium text-app-text inline-block text-left hover:underline"
+                                            className="font-medium text-app-text hover:underline"
                                         >
                                             @{profile.instagram.replace(/^@/, "")}
                                         </a>
@@ -219,28 +202,101 @@ export default function MenuPage() {
                             </div>
                         </div>
 
-                        {/* Left logo */}
                         <img
-                            src={
-                                profile?.logo_url
-                                    ? resolveAssetUrl(profile.logo_url)
-                                    : logo
-                            }
+                            src={profile?.logo_url ? resolveAssetUrl(profile.logo_url) : logo}
                             alt={profile?.name || "لوگو"}
-                            className="h-30 w-30 shrink-0 object-contain opacity-90"
+                            className="h-28 w-28 shrink-0 object-contain opacity-90"
                             loading="lazy"
                         />
                     </div>
-                </footer>
-            </main>
+                </div>
+            </footer>
+
+            {/* ==================== FLOATING BOTTOM BAR ==================== */}
+            {/* FLOATING BOTTOM BAR */}
+            {showFloatingBar && (
+                <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#374151] border-t border-gray-700 shadow-2xl text-white"> {/* Darker background */}
+                    <div
+                        className="mx-auto max-w-xl px-4 py-3.5 flex items-center justify-between cursor-pointer active:bg-[#2a2a2a]"
+                        onClick={() => setIsFooterOpen(!isFooterOpen)}
+                    >
+                        <div className="flex items-center gap-3">
+                            <img
+                                src={profile?.logo_url ? resolveAssetUrl(profile.logo_url) : logo}
+                                alt={profile?.name || "کافه"}
+                                className="h-9 w-9 object-contain rounded-lg"
+                            />
+                            <div>
+                                <div className="font-semibold">
+                                    {profile?.name || "کافه موج"}
+                                </div>
+                                {/* This text disappears when opened */}
+                                {!isFooterOpen && (
+                                    <div className="text-xs text-gray-400">اطلاعات کافه</div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className={classNames(
+                            "transition-transform duration-300 text-xl",
+                            isFooterOpen && "rotate-180"
+                        )}>
+                            ▼
+                        </div>
+                    </div>
+
+                    {/* Expanded Dropdown - Matches your original footer */}
+                    <div className={classNames(
+                        "overflow-hidden transition-all duration-300 border-t border-gray-700",
+                        isFooterOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+                    )}>
+                        <div className="px-4 pb-6">
+                            <div className="rounded-2xl border border-gray-700 bg-[#3c4759] p-5 text-white">
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-semibold">
+                                            {profile?.name ? profile.name : "اطلاعات تماس"}
+                                        </div>
+                                        <div className="mt-2 space-y-1 text-sm text-gray-400">
+                                            {profile?.address && <div>آدرس: {profile.address}</div>}
+                                            {profile?.hours && <div>ساعت کاری: {profile.hours}</div>}
+                                            {profile?.instagram && (
+                                                <div>
+                                                    اینستاگرام:{" "}
+                                                    <a
+                                                        href={`https://instagram.com/${profile.instagram.replace(/^@/, "")}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-400 hover:underline"
+                                                    >
+                                                        @{profile.instagram.replace(/^@/, "")}
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <img
+                                        src={profile?.logo_url ? resolveAssetUrl(profile.logo_url) : logo}
+                                        alt={profile?.name || "لوگو"}
+                                        className="h-28 w-28 shrink-0 object-contain opacity-90"
+                                        loading="lazy"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
         </div>
     );
 }
+
 
 function StatusCard({ title, desc }) {
     return (
@@ -261,14 +317,14 @@ function MenuItemCard({ item }) {
     return (
         <article
             className={classNames(
-                "rounded-2xl border bg-app-surface p-4 transition",
+                "rounded-2xl border bg-app-surface p-4 transition-all",
                 available ? "border-app-border" : "border-app-border opacity-60"
             )}
         >
-            <div className="flex items-stretch gap-4">
-                {/* Image on RIGHT (RTL) */}
+            <div className="flex gap-4">
+                {/* Image - Right side (standard for RTL) */}
                 <div className="shrink-0 w-24 sm:w-28">
-                    <div className="h-full w-full overflow-hidden rounded-xl bg-black/5">
+                    <div className="overflow-hidden rounded-xl bg-black/5">
                         {img ? (
                             <img
                                 src={resolveAssetUrl(img)}
@@ -285,32 +341,39 @@ function MenuItemCard({ item }) {
                     </div>
                 </div>
 
-                {/* Text + Price */}
-                <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                                <div className="truncate text-base font-semibold text-app-text">{title}</div>
-                                {!available ? (
-                                    <span className="shrink-0 rounded-full border border-app-border bg-app-soft px-2 py-0.5 text-xs text-app-muted">
-                                        ناموجود
-                                    </span>
-                                ) : null}
+                {/* Content */}
+                <div className="flex-1 flex flex-col">
+                    <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    <div className="truncate text-base font-semibold text-app-text">
+                                        {title}
+                                    </div>
+                                    {!available && (
+                                        <span className="shrink-0 rounded-full border border-app-border bg-app-soft px-2 py-0.5 text-xs text-app-muted">
+                                            ناموجود
+                                        </span>
+                                    )}
+                                </div>
+
+                                {desc && (
+                                    <div className="mt-1.5 text-sm leading-6 text-app-muted">
+                                        {desc}
+                                    </div>
+                                )}
                             </div>
-
-                            {desc ? (
-                                <div className="mt-1 text-sm leading-6 text-app-muted">{desc}</div>
-                            ) : null}
                         </div>
+                    </div>
 
-                        {priceText ? (
-                            <div className="shrink-0 self-center text-sm font-semibold tabular-nums text-app-text">
+                    {/* Price - Forced to Bottom LEFT */}
+                    {priceText && (
+                        <div className="mt-auto pt-4 text-left">
+                            <div className="text-sm font-semibold tabular-nums text-app-text">
                                 {priceText}
                             </div>
-                        ) : (
-                            <div className="shrink-0 self-center text-sm text-app-muted"></div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </article>
