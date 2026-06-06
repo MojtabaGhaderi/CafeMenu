@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchMenu, fetchShopProfile, resolveAssetUrl } from "./api/api";
 import logo from "../assets/logo.PNG";
 
-import StateLoading from "../components/states/StateLoading";
 import StateError from "../components/states/StateError";
 
 function slugifyId(input) {
@@ -67,11 +66,15 @@ export default function MenuPage() {
 
     const [activeId, setActiveId] = useState("");
     const [isFooterOpen, setIsFooterOpen] = useState(false);
-    const [showFloatingBar, setShowFloatingBar] = useState(true);
+    const [showFloatingBar, setShowFloatingBar] = useState(false);
+
+    // Logo overlay state
+    const [showLogoOverlay, setShowLogoOverlay] = useState(true);
+    const [logoFading, setLogoFading] = useState(false);
 
     const footerRef = useRef(null);
 
-    // Scroll spy logic (unchanged)
+    // Scroll spy logic
     useEffect(() => {
         if (!activeId && categories.length) setActiveId(categories[0]._anchorId);
     }, [categories, activeId]);
@@ -99,15 +102,76 @@ export default function MenuPage() {
         return () => observer.disconnect();
     }, []);
 
+    // Logo overlay: fade out on scroll
+    useEffect(() => {
+        if (isLoading) return;
+
+        const handleScroll = () => {
+            const scrollY = window.scrollY;
+            if (scrollY > 50 && showLogoOverlay && !logoFading) {
+                setLogoFading(true);
+                setTimeout(() => {
+                    setShowLogoOverlay(false);
+                }, 600);
+            }
+        };
+
+        window.addEventListener("scroll", handleScroll, { passive: true });
+        return () => window.removeEventListener("scroll", handleScroll);
+    }, [isLoading, showLogoOverlay, logoFading]);
+
+    // ========== FULL-SCREEN LOADING LOGO ==========
+    if (isLoading) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-app-bg">
+                <img
+                    src={logo}
+                    alt="Loading..."
+                    className="w-500 object-contain animate-pulse"
+                />
+            </div>
+        );
+    }
+
     return (
         <div dir="rtl" lang="fa" className="relative min-h-dvh bg-app-bg text-app-text">
-            {/* Background logo */}
+            {/* Background logo (faint, always visible behind content) */}
             <img
                 src={logo}
                 alt=""
                 aria-hidden="true"
                 className="pointer-events-none fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] opacity-[0.1] object-contain z-0"
             />
+
+            {/* ========== LOGO OVERLAY (on top, fades on scroll) ========== */}
+            {showLogoOverlay && (
+                <div
+                    className={classNames(
+                        "fixed inset-0 z-[90] flex flex-col items-center justify-center bg-app-bg transition-opacity duration-500 ease-out",
+                        logoFading ? "opacity-0 pointer-events-none" : "opacity-100"
+                    )}
+                >
+                    <img
+                        src={logo}
+                        alt="Logo"
+                        className="w-[90vw] object-contain animate-pulse"
+
+                    />
+
+                    {/* Scroll hint — 3 arrows pointing UP (^), no text */}
+                    <div className="absolute bottom-16 flex flex-col items-center gap-1">
+                        <svg className="w-8 h-8 text-[#111827] animate-bounce-slow" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                        </svg>
+                        <svg className="w-8 h-8 text-[#111827] animate-bounce-slow delay-150" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                        </svg>
+                        <svg className="w-8 h-8 text-[#111827] animate-bounce-slow delay-300" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                        </svg>
+                    </div>
+                </div>
+            )}
 
             {/* Sticky Category Tabs */}
             <header className="relative sticky top-0 z-30 border-b border-app-border bg-app-header/85 backdrop-blur">
@@ -137,9 +201,7 @@ export default function MenuPage() {
 
             {/* Main Content */}
             <main className="relative z-10 mx-auto max-w-xl px-4 py-6 pb-28">
-                {isLoading ? (
-                    <StateLoading />
-                ) : isError ? (
+                {isError ? (
                     <StateError />
                 ) : (
                     <div className="space-y-10">
@@ -213,9 +275,8 @@ export default function MenuPage() {
             </footer>
 
             {/* ==================== FLOATING BOTTOM BAR ==================== */}
-            {/* FLOATING BOTTOM BAR */}
             {showFloatingBar && (
-                <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#374151] border-t border-gray-700 shadow-2xl text-white"> {/* Darker background */}
+                <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#374151] border-t border-gray-700 shadow-2xl text-white">
                     <div
                         className="mx-auto max-w-xl px-4 py-3.5 flex items-center justify-between cursor-pointer active:bg-[#2a2a2a]"
                         onClick={() => setIsFooterOpen(!isFooterOpen)}
@@ -230,7 +291,6 @@ export default function MenuPage() {
                                 <div className="font-semibold">
                                     {profile?.name || "کافه موج"}
                                 </div>
-                                {/* This text disappears when opened */}
                                 {!isFooterOpen && (
                                     <div className="text-xs text-gray-400">اطلاعات کافه</div>
                                 )}
@@ -245,7 +305,7 @@ export default function MenuPage() {
                         </div>
                     </div>
 
-                    {/* Expanded Dropdown - Matches your original footer */}
+                    {/* Expanded Dropdown */}
                     <div className={classNames(
                         "overflow-hidden transition-all duration-300 border-t border-gray-700",
                         isFooterOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
@@ -267,6 +327,7 @@ export default function MenuPage() {
                                                         href={`https://instagram.com/${profile.instagram.replace(/^@/, "")}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
+                                                        dir="ltr"
                                                         className="text-blue-400 hover:underline"
                                                     >
                                                         @{profile.instagram.replace(/^@/, "")}
@@ -292,11 +353,24 @@ export default function MenuPage() {
             <style>{`
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+                @keyframes bounce-slow {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(12px); }
+                }
+                .animate-bounce-slow {
+                    animation: bounce-slow 1.2s ease-in-out infinite;
+                }
+                .delay-150 {
+                    animation-delay: 150ms;
+                }
+                .delay-300 {
+                    animation-delay: 300ms;
+                }
             `}</style>
         </div>
     );
 }
-
 
 function StatusCard({ title, desc }) {
     return (
