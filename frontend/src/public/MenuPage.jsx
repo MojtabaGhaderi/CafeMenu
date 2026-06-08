@@ -95,7 +95,7 @@ export default function MenuPage() {
             ([entry]) => {
                 setShowFloatingBar(!entry.isIntersecting);
             },
-            { threshold: 0.3 }
+            { threshold: 0.05 }
         );
 
         observer.observe(footerRef.current);
