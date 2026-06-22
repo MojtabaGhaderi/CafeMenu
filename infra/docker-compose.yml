@@ -33,8 +33,6 @@ services:
   frontend:
     build:
       context: ../frontend
-      args:
-        VITE_API_BASE_URL: http://localhost:8000
     container_name: coffee_menu_frontend
     depends_on:
       - backend

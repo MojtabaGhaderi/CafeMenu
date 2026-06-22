@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const API_BASE = "/api" || "http://localhost:8000";
+const API_BASE = "/api";
 
 export default function App() {
     const [health, setHealth] = useState("loading...");

@@ -1,6 +1,6 @@
 import { getToken } from "../auth/auth";
 
-const API_BASE = "/api" || "http://localhost:8000";
+const API_BASE = "/api";
 
 async function request(path, { method = "GET", body } = {}) {
     const token = getToken();

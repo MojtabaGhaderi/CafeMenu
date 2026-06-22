@@ -1,4 +1,4 @@
-const API_BASE = "/api" || "http://localhost:8000";
+const API_BASE = "/api";
 
 export async function fetchMenu() {
     const res = await fetch(`${API_BASE}/public/menu`);
