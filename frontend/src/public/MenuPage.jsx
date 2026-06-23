@@ -71,6 +71,8 @@ export default function MenuPage() {
     // Logo overlay state
     const [showLogoOverlay, setShowLogoOverlay] = useState(true);
     const [logoFading, setLogoFading] = useState(false);
+    const hasFadedRef = useRef(false);
+    const timerRef = useRef(null); // <-- ref for the auto‑hide timeout
 
     const footerRef = useRef(null);
 
@@ -102,23 +104,35 @@ export default function MenuPage() {
         return () => observer.disconnect();
     }, []);
 
-    // Logo overlay: fade out on scroll
+    // Logo overlay: fade out on scroll or after 4 seconds (StrictMode‑safe)
     useEffect(() => {
         if (isLoading) return;
 
         const handleScroll = () => {
-            const scrollY = window.scrollY;
-            if (scrollY > 50 && showLogoOverlay && !logoFading) {
+            if (window.scrollY > 50 && !hasFadedRef.current) {
+                hasFadedRef.current = true;
                 setLogoFading(true);
-                setTimeout(() => {
-                    setShowLogoOverlay(false);
-                }, 600);
+                clearTimeout(timerRef.current);
+                setTimeout(() => setShowLogoOverlay(false), 600);
             }
         };
 
+        // Auto‑hide after 4 seconds if the user never scrolls
+        timerRef.current = setTimeout(() => {
+            if (!hasFadedRef.current) {
+                hasFadedRef.current = true;
+                setLogoFading(true);
+                setTimeout(() => setShowLogoOverlay(false), 600);
+            }
+        }, 4000);
+
         window.addEventListener("scroll", handleScroll, { passive: true });
-        return () => window.removeEventListener("scroll", handleScroll);
-    }, [isLoading, showLogoOverlay, logoFading]);
+
+        return () => {
+            window.removeEventListener("scroll", handleScroll);
+            clearTimeout(timerRef.current);
+        };
+    }, [isLoading]);
 
     // ========== FULL-SCREEN LOADING LOGO ==========
     if (isLoading) {
@@ -127,7 +141,7 @@ export default function MenuPage() {
                 <img
                     src={logo}
                     alt="Loading..."
-                    className="w-500 object-contain animate-pulse"
+                    className="w-80 object-contain animate-pulse"
                 />
             </div>
         );
@@ -143,7 +157,7 @@ export default function MenuPage() {
                 className="pointer-events-none fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] opacity-[0.1] object-contain z-0"
             />
 
-            {/* ========== LOGO OVERLAY (on top, fades on scroll) ========== */}
+            {/* ========== LOGO OVERLAY (on top, fades on scroll or after 4s) ========== */}
             {showLogoOverlay && (
                 <div
                     className={classNames(
@@ -155,10 +169,9 @@ export default function MenuPage() {
                         src={logo}
                         alt="Logo"
                         className="w-[90vw] object-contain animate-pulse"
-
                     />
 
-                    {/* Scroll hint — 3 arrows pointing UP (^), no text */}
+                    {/* Scroll hint — 3 arrows pointing UP, no text */}
                     <div className="absolute bottom-16 flex flex-col items-center gap-1">
                         <svg className="w-8 h-8 text-[#111827] animate-bounce-slow" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
