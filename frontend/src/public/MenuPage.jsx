@@ -76,12 +76,16 @@ export default function MenuPage() {
 
     const footerRef = useRef(null);
 
-    // Scroll spy logic
+    // Set initial active category
     useEffect(() => {
-        if (!activeId && categories.length) setActiveId(categories[0]._anchorId);
+        if (!activeId && categories.length) {
+            setActiveId(categories[0]._anchorId);
+        }
     }, [categories, activeId]);
 
+    // Click handler
     const scrollToCategory = useCallback((anchorId) => {
+        setActiveId(anchorId);
         const el = document.getElementById(anchorId);
         if (!el) return;
         const topOffset = 96;
@@ -89,17 +93,56 @@ export default function MenuPage() {
         window.scrollTo({ top: y, behavior: "smooth" });
     }, []);
 
-    // Hide floating bar when real footer is visible
+    // Scroll-spy (throttled)
+    useEffect(() => {
+        if (!categories.length) return;
+
+        let ticking = false;
+
+        const handleScroll = () => {
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    const headerHeight = 96;
+                    let closest = null;
+                    let closestDist = Infinity;
+
+                    categories.forEach(cat => {
+                        const el = document.getElementById(cat._anchorId);
+                        if (!el) return;
+                        const rect = el.getBoundingClientRect();
+                        const dist = rect.top - headerHeight;
+                        if (dist >= 0 && dist < closestDist) {
+                            closestDist = dist;
+                            closest = cat._anchorId;
+                        }
+                    });
+
+                    if (closest === null && categories.length > 0) {
+                        // Bottom of page: pick the last category
+                        setActiveId(categories[categories.length - 1]._anchorId);
+                    } else if (closest !== null) {
+                        setActiveId(closest);
+                    }
+
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        handleScroll(); // run once
+
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [categories]);
+
+    // Footer observer (unchanged)
     useEffect(() => {
         if (!footerRef.current) return;
-
         const observer = new IntersectionObserver(
-            ([entry]) => {
-                setShowFloatingBar(!entry.isIntersecting);
-            },
+            ([entry]) => setShowFloatingBar(!entry.isIntersecting),
             { threshold: 0.05 }
         );
-
         observer.observe(footerRef.current);
         return () => observer.disconnect();
     }, []);

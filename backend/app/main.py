@@ -48,3 +48,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+frontend_build_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "../frontend/dist")
+if os.path.exists(frontend_build_path):
+    app.mount("/", StaticFiles(directory=frontend_build_path, html=True), name="static")
