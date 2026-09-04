@@ -1,8 +1,11 @@
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.public_menu import router as public_menu_router
-
-
 from app.api.auth import router as auth_router
 from app.api.admin_debug import router as admin_debug_router
 from app.api.admin_categories import router as admin_categories_router
@@ -13,27 +16,19 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.api.public_shop_profile import router as public_shop_profile_router
 
-
 Path("uploads").mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Coffee Menu API", version="0.1.0")
 
-# Dev-friendly CORS (we'll tighten later)
 app.add_middleware(
     CORSMiddleware,
-
-    allow_origins=[
-        "*"
-        
-    ],
-    # allow_credentials=True,
+    allow_origins=["*"],
     allow_credentials=False,
-
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
+# API routes
 app.include_router(public_menu_router)
 app.include_router(auth_router)
 app.include_router(admin_debug_router)
@@ -49,6 +44,16 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 def health():
     return {"status": "ok"}
 
-frontend_build_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "../frontend/dist")
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "cafe-app"}
+
+# Serve React build ONLY if it exists
+frontend_build_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "..", "frontend", "dist"
+)
+frontend_build_path = os.path.normpath(frontend_build_path)
+
 if os.path.exists(frontend_build_path):
     app.mount("/", StaticFiles(directory=frontend_build_path, html=True), name="static")
